@@ -2,7 +2,7 @@
 
 require("dialog_wrap")
 
---TODO: remember last selection when going back
+--TODO:
 --	add better description text
 --	add CLDR support maybe
 --	make UTC work
@@ -14,29 +14,38 @@ continent_order = {"Africa", "America", "Antarctica", "Asia", "Atlantic",
 		   "Australia", "Europe", "Indian", "Pacific", "UTC"}
 
 continents = {
-	Asia = {countries = {}},
-	America = {countries = {}},
-	Europe = {countries = {}},
-	Africa = {countries = {}},
-	Antarctica = {countries = {}},
-	Australia = {countries = {}},
-	Atlantic = {countries = {}, ocean = true},
-	Pacific = {countries = {}, ocean = true},
-	Indian = {countries = {}, ocean = true},
-	UTC = {countries = {}},
+	Asia 		= {countries = {}},
+	America 	= {countries = {}},
+	Europe 		= {countries = {}},
+	Africa 		= {countries = {}},
+	Antarctica 	= {countries = {}},
+	Australia 	= {countries = {}},
+	Atlantic 	= {countries = {}, ocean = true},
+	Pacific 	= {countries = {}, ocean = true},
+	Indian 		= {countries = {}, ocean = true},
+	UTC 		= {countries = {}},
 }
 
--- After we read from the iso3166 file, this will be
--- a table of 2-letter country codes to the full name
--- of the country. After we read from the zone1970
--- file, this table will also include all of the
--- timezones in each country.
+-- Format :
+-- countries[two_letter_country_code] = {
+--	name = full_name_of_country,
+--	tzs = array_of_timezones_of_country
+-- }
 countries = {}
 
-local function pickContinentDialog()
+local function pickContinentDialog(default_continent)
+	local default_option = 0
+
+	for i, continent in ipairs(continent_order) do
+		if (continent == default_continent) then
+			default_option = i - 1
+		end
+	end
+
 	local retcode, cont = dialogMenu("Pick a continent",
-		"description", 20, 50, 10, 10, 0,
-		continent_order, {"", "(North and South)", "", "", "", "", "", "", "", ""})
+	    "description", 20, 50, 10, 10, default_option,
+	    continent_order,
+	    {"", "(North and South)", "", "", "", "", "", "", "", ""})
 
 	if (retcode == 0) then
 		return retcode, cont:match("^%g*")
@@ -45,13 +54,14 @@ local function pickContinentDialog()
 	end
 end
 
-local function pickCountryDialog(continent)
+local function pickCountryDialog(continent, default_country)
 	local width = 0
 	local keys = {}
 	local vals = {}
 	local countries_in_cont = continents[continent].countries
 	local height = #countries_in_cont + 8
 	local title_text
+	local default_option = 0
 
 	if (continents[continent].ocean) then
 		title_text = "Islands and groups in the " .. continent .. " Ocean"
@@ -65,10 +75,15 @@ local function pickCountryDialog(continent)
 		table.insert(keys, country_code)
 		table.insert(vals, countries[country_code].name)
 		width = math.max(width, #country_code + #countries[country_code].name + 10)
+
+		if (country_code == default_country) then
+			default_option = i-1
+		end
 	end
 	
 	local retcode, country_code = dialogMenu(title_text,
-		"select a country or region", height, width, height, #countries_in_cont, 0, keys, vals)
+	    "select a country or region", height, width, height,
+	    #countries_in_cont, default_option, keys, vals)
 	return retcode, country_code
 end
 
@@ -88,7 +103,7 @@ local function pickTimezoneDialog(country)
 		end
 
 		local retcode, tz_name = dialogMenu("Pick a Timezone",
-			"description", height, width, height, #tzs, 0, keys, vals)
+		    "description", height, width, height, #tzs, 0, keys, vals)
 		return retcode, tz_name
 	else
 		return 0, tzs[1].name
@@ -106,6 +121,8 @@ local function splitString(str, char)
 	return split_list
 end
 
+-- Inserts a country code into a continent's array
+-- of countries, sorted by the country's full name
 local function insertCountry(country_code, continent)
 	local country_list = continents[continent].countries
 
@@ -132,8 +149,8 @@ local function getCountryCodes()
 			local country_code = split_list[1]
 			local country_name = split_list[4]
 
-			countries[country_code] = {}
-			countries[country_code].name = country_name
+			countries[country_code] =
+			    {name = country_name, tzs = {}}
 		end
 	end
 end
@@ -143,15 +160,16 @@ local function getTimezoneCodes()
 	for line in io.lines(ZONEINFO_FILENAME) do
 		if (not (line:sub(1, 1) == "#")) then
 			local split_list = splitString(line, "\t")
+
 			local country_codes = split_list[1]
 			local country_list = splitString(country_codes, ",")
+
 			local tz_name = split_list[3]
 			local tz_continent = tz_name:match("^[^/]*")
-			local comment = nil
-			
-			if (#split_list == 4) then
-				comment = split_list[4]
-			end
+
+			-- This may be nil but that's okay
+			local comment = split_list[4]
+
 			local tz = {name = tz_name, comment = comment}
 
 			for i, country_code in pairs(country_list) do
@@ -159,48 +177,49 @@ local function getTimezoneCodes()
 				insertCountry(country_code, tz_continent)
 
 				--put the timezone in the country
-				if (countries[country_code].tzs == nil) then
-					countries[country_code].tzs = {tz}
-				else
-					table.insert(countries[country_code].tzs, tz)
-				end
+				table.insert(countries[country_code].tzs, tz)
 			end
 		end
 	end
 end
 
-initDialog()
-getCountryCodes()
-getTimezoneCodes()
+local function main()
+	local state = 0
+	local retcode, continent, country, timezone
 
-local state = 0
-local retcode, continent, country, timezone
-while (true) do
-	if (state == 0) then
-		retcode, continent = pickContinentDialog()
-		if (retcode == 0) then
-			state = 1
-		else
-			break
+	initDialog()
+	getCountryCodes()
+	getTimezoneCodes()
+
+	while (true) do
+		if (state == 0) then
+			retcode, continent = pickContinentDialog(continent)
+			if (retcode == 0) then
+				state = 1
+			else
+				break
+			end
+		elseif (state == 1) then
+			retcode, country = pickCountryDialog(continent, country)
+			if (retcode == 0) then
+				state = 2
+			else
+				state = 0
+			end
+		elseif (state == 2) then
+			retcode, timezone = pickTimezoneDialog(country)
+			if (retcode == 0) then
+				break
+			else
+				state = 1
+			end
 		end
-	elseif (state == 1) then
-		retcode, country = pickCountryDialog(continent)
-		if (retcode == 0) then
-			state = 2
-		else
-			state = 0
-		end
-	elseif (state == 2) then
-		retcode, timezone = pickTimezoneDialog(country)
-		if (retcode == 0) then
-			break
-		else
-			state = 1
-		end
+		dialogClear()
 	end
+
 	dialogClear()
+	endDialog()
+	print(timezone)
 end
 
-dialogClear()
-endDialog()
-print(timezone)
+main()
