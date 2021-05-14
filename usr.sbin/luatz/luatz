@@ -72,7 +72,9 @@ local function pickCountryDialog(continent)
 	return retcode, country_code
 end
 
-local function pickTimezoneDialog(tzs)
+local function pickTimezoneDialog(country)
+	local tzs = countries[country].tzs
+
 	if (#tzs > 1) then
 		local width = 0
 		local height = #tzs + 8
@@ -189,7 +191,7 @@ while (true) do
 			state = 0
 		end
 	elseif (state == 2) then
-		retcode, timezone = pickTimezoneDialog(countries[country].tzs)
+		retcode, timezone = pickTimezoneDialog(country)
 		if (retcode == 0) then
 			break
 		else
