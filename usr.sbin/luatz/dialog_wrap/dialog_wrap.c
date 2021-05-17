@@ -3,8 +3,66 @@
 #include <lualib.h>
 #include <dialog.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 int luaopen_dialog_wrap(lua_State *);
+
+static int
+getopt_wrap(lua_State *L)
+{
+	const char *optstring;
+	int argc;
+	char **argv;
+	char ch;
+	size_t len;
+
+	//stack : argc argv optstring
+
+	argc = (int)lua_tonumber(L, 1);
+	optstring = lua_tostring(L, 3);
+
+	argv = malloc((argc + 1) * sizeof(const char*));
+	argv[0] = malloc(7 * sizeof(char));
+	strcpy(argv[0], "FILLER");
+
+	for (int i = 1; i <= argc; ++i) {
+		lua_rawgeti(L, 2, i);
+		//stack : argc argv optstring argv[i]
+		const char *str = lua_tolstring(L, -1, &len);
+		argv[i] = malloc((len + 1) * sizeof(char));
+		strncpy(argv[i], str, (len + 1));
+		lua_pop(L, 1);
+	}
+
+	lua_newtable(L);
+	//stack : argc argv optstring []
+	int i = 1;
+	while ((ch = getopt(argc + 1, argv, optstring)) != -1) {
+		lua_newtable(L);
+		// stack : ... [... ] {}
+		lua_pushstring(L, "ch");
+		lua_pushlstring(L, &ch, 1);
+		// stack : ... [... ] {} "ch" ch
+		lua_rawset(L, -3);
+		// stack : ... [... ] {ch = ch}
+
+		lua_pushstring(L, "optarg");
+		lua_pushstring(L, optarg);
+		lua_settable(L, -3);
+		// stack : ... [... ] {ch = ch, optarg = optarg}
+
+		lua_pushstring(L, "optind");
+		lua_pushnumber(L, optind);
+		lua_settable(L, -3);
+		// stack : ... [... ] {ch = ch, optarg = optarg, optind = optind}
+
+		lua_rawseti(L, -2, i);
+		// stack : ... [... {ch = ch, optarg = optarg, optind = optind}]
+		++i;
+	}
+
+	return 1;
+}
 
 static int
 init_dialog_wrap(lua_State *L)
@@ -56,7 +114,7 @@ dialog_menu_wrap(lua_State *L)
 
 	items = dlg_calloc(DIALOG_LISTITEM, item_no + 1);
 
-	for (int i = 1; i <= (int)item_no; ++i) {
+	for (int i = 1; i <= item_no; ++i) {
 		//stack : ... keys vals
 		lua_rawgeti(L, 8, i);
 		//stack : ... keys vals keys[i]
@@ -101,5 +159,6 @@ luaopen_dialog_wrap(lua_State *L)
 	lua_register(L, "initDialog", init_dialog_wrap);
 	lua_register(L, "dialogClear", dialog_clear_wrap);
 	lua_register(L, "endDialog", end_dialog_wrap);
+	lua_register(L, "getOpt", getopt_wrap);
 	return 0;
 }

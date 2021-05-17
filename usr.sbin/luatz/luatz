@@ -183,9 +183,36 @@ local function getTimezoneCodes()
 	end
 end
 
+local function getopt(argc, argv, optstr)
+	local coll = getOpt(argc, argv, optstr)
+	local count = #coll
+	local index = 0
+
+	return function ()
+		index = index + 1
+		if index <= count then
+			return coll[index].ch, coll[index].optarg, coll[index].optind
+		end
+	end
+end
+
 local function main()
 	local state = 0
 	local retcode, continent, country, timezone
+	local ch, optarg
+
+	for ch, optarg, optind in getopt(#arg, arg, "C:nrs") do
+		if (ch == "n") then
+		elseif (ch == "r") then
+		elseif (ch == "s") then
+		elseif (ch == "C") then
+		else
+			print("TODO WRITE ERROR MESSAGE")
+			return
+		end
+
+		ch = getOpt(#arg, arg, "C:nrs")
+	end
 
 	initDialog()
 	getCountryCodes()
@@ -221,5 +248,6 @@ local function main()
 	endDialog()
 	print(timezone)
 end
+
 
 main()
