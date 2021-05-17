@@ -1,6 +1,7 @@
 #!/usr/libexec/flua
 
 require("dialog_wrap")
+getopt = require("getopt")
 
 --TODO:
 --	add better description text
@@ -26,7 +27,7 @@ continents = {
 	UTC 		= {countries = {}},
 }
 
--- enumeration of the possible UI states
+-- enum of the possible UI states
 states = {
 	PICK_CONTINENT		= 0,
 	PICK_COUNTRY		= 1,
@@ -36,8 +37,11 @@ states = {
 
 -- Format :
 -- countries[two_letter_country_code] = {
---	name = full_name_of_country,
---	tzs = array_of_timezones_of_country
+--	name = (full name of country),
+--	tzs = array of {
+--		name = (name of timezone),
+--		comment = (comment for timezone)
+--	}
 -- }
 countries = {}
 
@@ -196,25 +200,12 @@ local function getTimezoneCodes()
 	end
 end
 
--- calls the C getopt wrapper and returns an iterator
--- over the flags.
-local function getopt(argc, argv, optstr)
-	local coll = getOpt(argc, argv, optstr)
-	local count = #coll
-	local index = 0
-
-	return function ()
-		index = index + 1
-		if index <= count then
-			return coll[index].ch, coll[index].optarg, coll[index].optind
-		end
-	end
-end
-
 local function main()
 	local ch, optarg, optind
 
-	for ch, optarg, optind in getopt(#arg, arg, "C:nrs") do
+	local nonoptions = {}
+	for ch, arg in getopt(arg, "C:nrs", nonoptions) do
+		print(ch, arg)
 		if (ch == "n") then
 		elseif (ch == "r") then
 		elseif (ch == "s") then
@@ -223,8 +214,10 @@ local function main()
 			print("TODO WRITE ERROR MESSAGE")
 			return
 		end
-
-		ch = getOpt(#arg, arg, "C:nrs")
+	end
+	print("nonoptions:")
+	for i, option in ipairs(nonoptions) do
+		print(option)
 	end
 
 	initDialog()
@@ -232,6 +225,12 @@ local function main()
 	getTimezoneCodes()
 
 	local retcode, continent, country, timezone
+
+	-- The previous states of the menu are stored
+	-- in this stack, so that if the user chooses
+	-- to go back they will go to the right place.
+	-- The 'current' state is always the top of
+	-- the stack.
 	local state_stack = {states.PICK_CONTINENT}
 
 	while (true) do
@@ -243,9 +242,16 @@ local function main()
 		if (state == 0) then
 			retcode, continent = pickContinentDialog(continent)
 			if (retcode == 0) then
+
+				-- If the continent has only one country in it
+				-- (Australia) then we can skip the pick-country
+				-- step.
 				if (#continents[continent].countries == 1) then
 					country = continents[continent].countries[1]
 					table.insert(state_stack, states.PICK_TIMEZONE)
+				elseif (continent == "UTC") then
+					timezone = "UTC"
+					table.insert(state_stack, states.CONFIRM_TIMEZONE)
 				else
 					table.insert(state_stack, states.PICK_COUNTRY)
 				end
@@ -255,6 +261,9 @@ local function main()
 		elseif (state == 1) then
 			retcode, country = pickCountryDialog(continent, country)
 			if (retcode == 0) then
+
+				-- Like above, if the country has only one timezone
+				-- we can skip picking it.
 				if (#countries[country].tzs == 1) then
 					timezone = countries[country].tzs[1].name
 					table.insert(state_stack, states.CONFIRM_TIMEZONE)
