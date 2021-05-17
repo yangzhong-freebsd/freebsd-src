@@ -89,6 +89,27 @@ end_dialog_wrap(lua_State *L)
 }
 
 static int
+dialog_yesno_wrap(lua_State *L)
+{
+	const char *title, *cprompt;
+	int height = 0;
+	int width = 0;
+	size_t title_len, cprompt_len;
+
+	//stack : title cprompt height width
+
+	title = lua_tolstring(L, 1, &title_len);
+	cprompt = lua_tolstring(L, 2, &cprompt_len);
+	height = lua_tonumber(L, 3);
+	width = lua_tonumber(L, 4);
+
+	int result = dialog_yesno(title, cprompt, height, width);
+
+	lua_pushnumber(L, result);
+	return 1;
+}
+
+static int
 dialog_menu_wrap(lua_State *L)
 {
 	const char *title, *cprompt;
@@ -160,5 +181,6 @@ luaopen_dialog_wrap(lua_State *L)
 	lua_register(L, "dialogClear", dialog_clear_wrap);
 	lua_register(L, "endDialog", end_dialog_wrap);
 	lua_register(L, "getOpt", getopt_wrap);
+	lua_register(L, "dialogYesNo", dialog_yesno_wrap);
 	return 0;
 }

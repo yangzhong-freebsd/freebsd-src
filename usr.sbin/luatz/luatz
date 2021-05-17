@@ -26,6 +26,14 @@ continents = {
 	UTC 		= {countries = {}},
 }
 
+-- enumeration of the possible UI states
+states = {
+	PICK_CONTINENT		= 0,
+	PICK_COUNTRY		= 1,
+	PICK_TIMEZONE		= 2,
+	CONFIRM_TIMEZONE	= 3,
+}
+
 -- Format :
 -- countries[two_letter_country_code] = {
 --	name = full_name_of_country,
@@ -110,6 +118,11 @@ local function pickTimezoneDialog(country)
 	end
 end
 
+local function confirmTimezoneDialog(timezone)
+	local confirm = dialogYesNo("Confirm Timezone", "Is " .. timezone .. " correct? TODO: change to three-letter timezone code instead", 0, 0)
+	return confirm
+end
+
 local function splitString(str, char)
 	local split_list = {}
 	local pattern = "[^" .. char .. "]+"
@@ -183,6 +196,8 @@ local function getTimezoneCodes()
 	end
 end
 
+-- calls the C getopt wrapper and returns an iterator
+-- over the flags.
 local function getopt(argc, argv, optstr)
 	local coll = getOpt(argc, argv, optstr)
 	local count = #coll
@@ -197,9 +212,7 @@ local function getopt(argc, argv, optstr)
 end
 
 local function main()
-	local state = 0
-	local retcode, continent, country, timezone
-	local ch, optarg
+	local ch, optarg, optind
 
 	for ch, optarg, optind in getopt(#arg, arg, "C:nrs") do
 		if (ch == "n") then
@@ -218,27 +231,52 @@ local function main()
 	getCountryCodes()
 	getTimezoneCodes()
 
+	local retcode, continent, country, timezone
+	local state_stack = {states.PICK_CONTINENT}
+
 	while (true) do
+		if (#state_stack == 0) then
+			break
+		end
+
+		local state = state_stack[#state_stack]
 		if (state == 0) then
 			retcode, continent = pickContinentDialog(continent)
 			if (retcode == 0) then
-				state = 1
+				if (#continents[continent].countries == 1) then
+					country = continents[continent].countries[1]
+					table.insert(state_stack, states.PICK_TIMEZONE)
+				else
+					table.insert(state_stack, states.PICK_COUNTRY)
+				end
 			else
-				break
+				table.remove(state_stack)
 			end
 		elseif (state == 1) then
 			retcode, country = pickCountryDialog(continent, country)
 			if (retcode == 0) then
-				state = 2
+				if (#countries[country].tzs == 1) then
+					timezone = countries[country].tzs[1].name
+					table.insert(state_stack, states.CONFIRM_TIMEZONE)
+				else
+					table.insert(state_stack, states.PICK_TIMEZONE)
+				end
 			else
-				state = 0
+				table.remove(state_stack)
 			end
 		elseif (state == 2) then
 			retcode, timezone = pickTimezoneDialog(country)
 			if (retcode == 0) then
+				table.insert(state_stack, states.CONFIRM_TIMEZONE)
+			else
+				table.remove(state_stack)
+			end
+		elseif (state == 3) then
+			retcode = confirmTimezoneDialog(timezone)
+			if (retcode == 0) then
 				break
 			else
-				state = 1
+				table.remove(state_stack)
 			end
 		end
 		dialogClear()
