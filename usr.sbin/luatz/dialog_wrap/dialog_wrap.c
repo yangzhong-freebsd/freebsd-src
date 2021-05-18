@@ -34,19 +34,22 @@ end_dialog_wrap(lua_State *L)
 static int
 dialog_yesno_wrap(lua_State *L)
 {
+	int n, result;
+	int height, width;
 	const char *title, *cprompt;
-	int height = 0;
-	int width = 0;
-	size_t title_len, cprompt_len;
+
+	n = lua_gettop(L);
+	luaL_argcheck(L, n == 4, n > 4 ? 5 : n,
+	    "dialogYesNo takes exactly four arguments");
 
 	//stack : title cprompt height width
 
-	title = lua_tolstring(L, 1, &title_len);
-	cprompt = lua_tolstring(L, 2, &cprompt_len);
-	height = lua_tonumber(L, 3);
-	width = lua_tonumber(L, 4);
+	title = luaL_checkstring(L, 1);
+	cprompt = luaL_checkstring(L, 2);
+	height = luaL_checknumber(L, 3);
+	width = luaL_checknumber(L, 4);
 
-	int result = dialog_yesno(title, cprompt, height, width);
+	result = dialog_yesno(title, cprompt, height, width);
 
 	lua_pushnumber(L, result);
 	return 1;
@@ -56,25 +59,25 @@ static int
 dialog_menu_wrap(lua_State *L)
 {
 	const char *title, *cprompt;
-	int height = 0;
-	int width = 0;
-	int menu_height = 0;
-	int item_no = 0;
+	int height, width, menu_height, item_no;
 	DIALOG_LISTITEM *items;
-	size_t title_len, cprompt_len, len;
-	const char *str;
-	int choice = 0;
-	int result = 0;
+	size_t len;
+	const char *selected, *str;
+	int n, current_item, result;
 
-	//stack : title cprompt height width menu_height item_no choice keys vals
+	n = lua_gettop(L);
+	luaL_argcheck(L, n == 9, n > 9 ? 10 : n,
+	    "dialogMenu takes exactly nine arguments");
+
+	//stack : title cprompt height width menu_height item_no current_item keys vals
 	
-	title = lua_tolstring(L, 1, &title_len);
-	cprompt = lua_tolstring(L, 2, &cprompt_len);
-	height = (int)lua_tonumber(L, 3);
-	width = (int)lua_tonumber(L, 4);
-	menu_height = (int)lua_tonumber(L, 5);
-	item_no = (int)lua_tonumber(L, 6);
-	choice = (int)lua_tonumber(L, 7);
+	title = luaL_checkstring(L, 1);
+	cprompt = luaL_checkstring(L, 2);
+	height = luaL_checknumber(L, 3);
+	width = luaL_checknumber(L, 4);
+	menu_height = luaL_checknumber(L, 5);
+	item_no = luaL_checknumber(L, 6);
+	current_item = luaL_checknumber(L, 7);
 
 	items = dlg_calloc(DIALOG_LISTITEM, item_no + 1);
 
@@ -96,16 +99,15 @@ dialog_menu_wrap(lua_State *L)
 		lua_pop(L, 1);
 	}
 
-	dialog_vars.default_item = items[choice].name;
+	dialog_vars.default_item = items[current_item].name;
 
 	result = dlg_menu(title, cprompt, height, width, menu_height,
-		item_no, items, &choice, NULL);
+		item_no, items, &current_item, NULL);
 
-	str = items[choice].name;
+	selected = items[current_item].name;
 
 	lua_pushnumber(L, result);
-	lua_pushstring(L, str);
-
+	lua_pushstring(L, selected);
 
 	for(int i = 0; i < item_no; ++i) {
 		free(items[i].name);
