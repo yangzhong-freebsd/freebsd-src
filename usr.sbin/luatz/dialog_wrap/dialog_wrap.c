@@ -61,9 +61,12 @@ dialog_menu_wrap(lua_State *L)
 	const char *title, *cprompt;
 	int height, width, menu_height, item_no;
 	DIALOG_LISTITEM *items;
+	DIALOG_VARS save_vars;
 	size_t len;
 	const char *selected, *str;
 	int n, current_item, result;
+
+	dlg_save_vars(&save_vars);
 
 	n = lua_gettop(L);
 	luaL_argcheck(L, n == 9, n > 9 ? 10 : n,
@@ -114,6 +117,8 @@ dialog_menu_wrap(lua_State *L)
 		free(items[i].text);
 	}
 	free(items);
+
+	dlg_restore_vars(&save_vars);
 
 	return 2;
 }

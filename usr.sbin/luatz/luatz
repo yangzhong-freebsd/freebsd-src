@@ -103,28 +103,25 @@ local function pickTimezoneDialog(country, default_timezone)
 	local tzs = countries[country].tzs
 	local default_option = 0
 
-	if (#tzs > 1) then
-		local width = 0
-		local height = #tzs + 8
-		local keys = {}
-		local vals = {}
+	local width = 0
+	local height = #tzs + 8
+	local keys = {}
+	local vals = {}
 
-		for i, tz in ipairs(tzs) do
-			table.insert(keys, tz.name)
-			table.insert(vals, tz.comment)
-			width = math.max(width, #tz.name + #tz.comment + 10)
+	for i, tz in ipairs(tzs) do
+		table.insert(keys, tz.name)
+		table.insert(vals, tz.comment)
+		width = math.max(width, #tz.name + #tz.comment + 10)
 
-			if (tz.name == default_timezone) then
-				default_option = i-1
-			end
+		if (tz.name == default_timezone) then
+			default_option = i-1
 		end
-
-		local retcode, tz_name = dialogMenu("Pick a Timezone",
-		    "description", height, width, height, #tzs, default_option, keys, vals)
-		return retcode, tz_name
-	else
-		return 0, tzs[1].name
 	end
+
+	local retcode, tz_name = dialogMenu("Pick a Timezone",
+	    "description", height, width, height, #tzs, default_option, keys, vals)
+
+	return retcode, tz_name
 end
 
 local function confirmTimezoneDialog(timezone)
@@ -230,6 +227,7 @@ local function main()
 	getTimezoneCodes()
 
 	local retcode, continent, country, timezone
+	local final_timezone
 
 	-- The previous states of the menu are stored
 	-- in this stack, so that if the user chooses
@@ -244,7 +242,7 @@ local function main()
 		end
 
 		local state = state_stack[#state_stack]
-		if (state == 0) then
+		if (state == states.PICK_CONTINENT) then
 			retcode, continent = pickContinentDialog(continent)
 			if (retcode == 0) then
 
@@ -263,7 +261,7 @@ local function main()
 			else
 				table.remove(state_stack)
 			end
-		elseif (state == 1) then
+		elseif (state == states.PICK_COUNTRY) then
 			retcode, country = pickCountryDialog(continent, country)
 			if (retcode == 0) then
 
@@ -278,16 +276,17 @@ local function main()
 			else
 				table.remove(state_stack)
 			end
-		elseif (state == 2) then
+		elseif (state == states.PICK_TIMEZONE) then
 			retcode, timezone = pickTimezoneDialog(country, timezone)
 			if (retcode == 0) then
 				table.insert(state_stack, states.CONFIRM_TIMEZONE)
 			else
 				table.remove(state_stack)
 			end
-		elseif (state == 3) then
+		elseif (state == states.CONFIRM_TIMEZONE) then
 			retcode = confirmTimezoneDialog(timezone)
 			if (retcode == 0) then
+				final_timezone = timezone
 				break
 			else
 				table.remove(state_stack)
@@ -298,7 +297,7 @@ local function main()
 
 	dialogClear()
 	endDialog()
-	print(timezone)
+	print(final_timezone)
 end
 
 
