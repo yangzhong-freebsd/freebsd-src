@@ -55,7 +55,7 @@ local function pickContinentDialog(default_continent)
 	end
 
 	local retcode, cont = dialogMenu("Pick a continent",
-	    "description", 20, 50, 10, 10, default_option,
+	    "description", 0, 0, 10, 10, default_option,
 	    continent_order,
 	    {"", "(North and South)", "", "", "", "", "", "", "", ""})
 
@@ -203,12 +203,14 @@ local function getTimezoneCodes()
 end
 
 local function main()
+	local really_do_it = true
 	local ch, optarg, optind
 
 	local nonoptions = {}
 	for ch, arg in getopt(arg, "C:nrs", nonoptions) do
 		print(ch, arg)
 		if (ch == "n") then
+			really_do_it = false
 		elseif (ch == "r") then
 		elseif (ch == "s") then
 		elseif (ch == "C") then
@@ -217,9 +219,19 @@ local function main()
 			return
 		end
 	end
-	print("nonoptions:")
-	for i, option in ipairs(nonoptions) do
-		print(option)
+
+	-- Having a non-option means we should treat it
+	-- as a timezone file/name. Use tzsetup for now
+	-- to make it work.
+	if (#nonoptions > 0) then
+		if (#nonoptions ~= 1) then
+			print("TODO WRITE ERROR MESSAGE")
+		elseif (not really_do_it) then
+			print(nonoptions[1])
+		else
+			os.execute("tzsetup " .. nonoptions[1])
+		end
+		return
 	end
 
 	initDialog()
@@ -297,7 +309,12 @@ local function main()
 
 	dialogClear()
 	endDialog()
-	print(final_timezone)
+
+	if (really_do_it) then
+		os.execute("tzsetup " .. final_timezone)
+	else
+		print(final_timezone)
+	end
 end
 
 
