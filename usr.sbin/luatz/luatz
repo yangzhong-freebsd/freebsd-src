@@ -99,8 +99,9 @@ local function pickCountryDialog(continent, default_country)
 	return retcode, country_code
 end
 
-local function pickTimezoneDialog(country)
+local function pickTimezoneDialog(country, default_timezone)
 	local tzs = countries[country].tzs
+	local default_option = 0
 
 	if (#tzs > 1) then
 		local width = 0
@@ -112,10 +113,14 @@ local function pickTimezoneDialog(country)
 			table.insert(keys, tz.name)
 			table.insert(vals, tz.comment)
 			width = math.max(width, #tz.name + #tz.comment + 10)
+
+			if (tz.name == default_timezone) then
+				default_option = i-1
+			end
 		end
 
 		local retcode, tz_name = dialogMenu("Pick a Timezone",
-		    "description", height, width, height, #tzs, 0, keys, vals)
+		    "description", height, width, height, #tzs, default_option, keys, vals)
 		return retcode, tz_name
 	else
 		return 0, tzs[1].name
@@ -274,7 +279,7 @@ local function main()
 				table.remove(state_stack)
 			end
 		elseif (state == 2) then
-			retcode, timezone = pickTimezoneDialog(country)
+			retcode, timezone = pickTimezoneDialog(country, timezone)
 			if (retcode == 0) then
 				table.insert(state_stack, states.CONFIRM_TIMEZONE)
 			else
