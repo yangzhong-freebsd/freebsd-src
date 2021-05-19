@@ -1,0 +1,29 @@
+#!/usr/libexec/flua
+
+local cfg = require("config")
+
+local function generateBSDInstallScript()
+	local script_file = io.open("./install_script", "w")
+
+	script_file:write("PARTITIONS=" .. cfg.partitions .. "\n")
+
+	script_file:write("DISTRIBUTIONS=" .. cfg.distributions .. "\n")
+
+	script_file:write("\n")
+
+	script_file:write("#!/bin/sh\n")
+
+	script_file:write("\n")
+
+	script_file:write("hostname " .. cfg.hostname .. "\n")
+
+	script_file:write("echo 'hostname=\"" .. cfg.hostname .. "\"' >> /etc/rc.conf\n")
+	
+	script_file:close()
+end
+
+local function main()
+	generateBSDInstallScript()
+end
+
+main()

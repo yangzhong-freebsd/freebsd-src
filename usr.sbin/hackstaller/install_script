@@ -1,0 +1,7 @@
+PARTITIONS=ada0
+DISTRIBUTIONS=kernel.txz base.txz src.txz
+
+#!/bin/sh
+
+hostname test
+echo 'hostname="test"' >> /etc/rc.conf
